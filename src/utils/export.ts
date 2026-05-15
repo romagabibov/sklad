@@ -57,9 +57,9 @@ export const exportInventoryReport = (products: Product[]) => {
   xlsx.writeFile(workbook, `Inventory_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
 };
 
-import html2pdf from 'html2pdf.js';
-
-export const exportInventoryToPDF = (products: Product[]) => {
+export const exportInventoryToPDF = async (products: Product[]) => {
+  const html2pdf = (await import('html2pdf.js')).default;
+  
   const container = document.createElement('div');
   container.style.padding = '20px';
   container.style.fontFamily = 'sans-serif';
@@ -102,7 +102,7 @@ export const exportInventoryToPDF = (products: Product[]) => {
   const opt = {
     margin:       10,
     filename:     `Inventory_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
+    image:        { type: 'jpeg' as const, quality: 0.98 },
     html2canvas:  { scale: 2 },
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
