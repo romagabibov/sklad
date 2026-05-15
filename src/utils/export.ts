@@ -56,3 +56,56 @@ export const exportInventoryReport = (products: Product[]) => {
   
   xlsx.writeFile(workbook, `Inventory_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
 };
+
+import html2pdf from 'html2pdf.js';
+
+export const exportInventoryToPDF = (products: Product[]) => {
+  const container = document.createElement('div');
+  container.style.padding = '20px';
+  container.style.fontFamily = 'sans-serif';
+  
+  const title = document.createElement('h2');
+  title.innerText = `Склад продукции - ${format(new Date(), 'dd.MM.yyyy')}`;
+  container.appendChild(title);
+  
+  const table = document.createElement('table');
+  table.style.width = '100%';
+  table.style.borderCollapse = 'collapse';
+  table.style.marginTop = '20px';
+  
+  table.innerHTML = `
+    <thead>
+      <tr style="background-color: #f8fafc; text-align: left;">
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Артикул</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Название</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Категория</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Цена (AZN)</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Остаток</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Сумма (AZN)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${products.map(p => `
+        <tr>
+          <td style="padding: 8px; border: 1px solid #e2e8f0; font-size: 12px;">${p.sku}</td>
+          <td style="padding: 8px; border: 1px solid #e2e8f0; font-size: 12px;">${p.name}</td>
+          <td style="padding: 8px; border: 1px solid #e2e8f0; font-size: 12px;">${p.category}</td>
+          <td style="padding: 8px; border: 1px solid #e2e8f0; font-size: 12px;">${p.price.toFixed(2)}</td>
+          <td style="padding: 8px; border: 1px solid #e2e8f0; font-size: 12px;">${p.stock}</td>
+          <td style="padding: 8px; border: 1px solid #e2e8f0; font-size: 12px;">${(p.price * p.stock).toFixed(2)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  `;
+  container.appendChild(table);
+  
+  const opt = {
+    margin:       10,
+    filename:     `Inventory_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2 },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  
+  html2pdf().set(opt).from(container).save();
+};

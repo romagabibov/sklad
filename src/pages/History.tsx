@@ -20,7 +20,7 @@ export const History: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <header className="h-16 bg-white border-b border-slate-200 px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between -mx-6 -mt-6 mb-6">
+      <header className="bg-white border-b border-slate-200 p-4 md:px-6 md:h-auto min-h-[64px] flex flex-col sm:flex-row items-start sm:items-center justify-between -mx-4 -mt-4 md:-mx-6 md:-mt-6 mb-4 md:mb-6 gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-slate-800">{t('history', 'История Операций')}</h1>
           <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>

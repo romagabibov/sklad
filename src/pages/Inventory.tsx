@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useWarehouse } from '../store/WarehouseContext';
 import { Plus, Search, Tag, Download, Trash2, Printer, Pencil } from 'lucide-react';
-import { exportInventoryReport } from '../utils/export';
+import { exportInventoryReport, exportInventoryToPDF } from '../utils/export';
 import { useLanguage } from '../i18n/LanguageContext';
 import JsBarcode from 'jsbarcode';
 import { Product } from '../types';
@@ -99,13 +99,20 @@ export const Inventory: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <header className="h-16 bg-white border-b border-slate-200 px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between -mx-6 -mt-6 mb-6">
+      <header className="bg-white border-b border-slate-200 p-4 md:px-6 md:h-auto min-h-[64px] flex flex-col sm:flex-row items-start sm:items-center justify-between -mx-4 -mt-4 md:-mx-6 md:-mt-6 mb-4 md:mb-6 gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-slate-800">{t('inventory', 'Склад продукции')}</h1>
           <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
           <span className="text-sm text-slate-500 hidden sm:block">{t('inventory_management', 'Управление остатками и добавление товаров')}</span>
         </div>
         <div className="flex gap-2 mt-2 sm:mt-0">
+          <button 
+            onClick={() => exportInventoryToPDF(products)}
+            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded shadow-sm flex items-center gap-2 hover:bg-slate-50 transition-colors"
+          >
+            <Download size={14} />
+            <span>PDF</span>
+          </button>
           <button 
             onClick={() => exportInventoryReport(products)}
             className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded shadow-sm flex items-center gap-2 hover:bg-slate-50 transition-colors"

@@ -57,10 +57,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
       {/* Mobile Topbar */}
       <div className="md:hidden flex items-center justify-between bg-slate-900 text-white p-4 fixed top-0 w-full z-20 shadow-md">
-         <div className="flex items-center gap-3">
+         <button 
+           onClick={() => handleSetTab('dashboard')}
+           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+         >
            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-lg text-white">A</div>
            <span className="text-lg font-bold tracking-tight uppercase">{t('app_title', 'ANBAR PRO')}</span>
-         </div>
+         </button>
          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 -mr-2">
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
          </button>
@@ -73,10 +76,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
 
       {/* Sidebar */}
       <aside className={`fixed md:relative top-0 left-0 w-64 bg-slate-900 text-white flex flex-col h-full z-40 transform transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800 md:flex hidden">
+        <button 
+          onClick={() => handleSetTab('dashboard')}
+          className="p-6 flex items-center gap-3 border-b border-slate-800 md:flex hidden hover:bg-slate-800 transition-colors w-full text-left"
+        >
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-lg text-white">A</div>
           <span className="text-lg font-bold tracking-tight uppercase">{t('app_title', 'ANBAR PRO')}</span>
-        </div>
+        </button>
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto mt-[72px] md:mt-0">
           {tabs.map((tab) => (
             <button
