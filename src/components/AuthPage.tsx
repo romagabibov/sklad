@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Package } from 'lucide-react';
@@ -10,10 +10,19 @@ export const AuthPage: React.FC = () => {
 
   const handleLogin = async () => {
     try {
+      setError(null);
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (err: any) {
-      setError(err.message);
+      if (err.code === 'auth/popup-blocked') {
+        // Если браузер блокирует всплывающее окно, пробуем через редирект
+        const provider = new GoogleAuthProvider();
+        await signInWithRedirect(auth, provider);
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('Этот домен не авторизован в Firebase. Пожалуйста, добавьте его в Authorized domains в Firebase Console.');
+      } else {
+        setError(err.message);
+      }
     }
   };
 

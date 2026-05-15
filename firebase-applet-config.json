@@ -1,10 +1,10 @@
 {
-  "projectId": "bma1-492221",
-  "appId": "1:198251111645:web:ed8589bee8ea3bfb68a734",
-  "apiKey": "AIzaSyC5nVb9s47EFRw_mXmCWq8OxWMMbz6g8rU",
-  "authDomain": "bma1-492221.firebaseapp.com",
+  "projectId": "sklad-a49f2",
+  "appId": "1:723375653858:web:6427fa37cedd097a35afbb",
+  "apiKey": "AIzaSyBMvlQtfgA3C-wVi8mjLg6s6TotDJEur5k",
+  "authDomain": "sklad-a49f2.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-cdf83a92-1e96-49a1-9847-d829fad8f05c",
-  "storageBucket": "bma1-492221.firebasestorage.app",
-  "messagingSenderId": "198251111645",
+  "storageBucket": "sklad-a49f2.firebasestorage.app",
+  "messagingSenderId": "723375653858",
   "measurementId": ""
 }
