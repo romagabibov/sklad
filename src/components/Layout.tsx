@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Package, ShoppingCart, ArrowRightLeft, LayoutDashboard, FileText, Truck, Barcode, Users, Menu, X, Download } from 'lucide-react';
+import { Package, ShoppingCart, ArrowRightLeft, LayoutDashboard, FileText, Truck, Barcode, Users, Menu, X, Download, LogOut } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { auth } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -112,6 +114,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
               <span>{t('install_app', 'Установить приложение')}</span>
             </button>
           )}
+          <button onClick={() => signOut(auth)} className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white rounded flex items-center justify-center gap-2 font-bold transition-colors mt-2">
+            <LogOut size={14} />
+            <span>Выйти</span>
+          </button>
         </div>
       </aside>
 

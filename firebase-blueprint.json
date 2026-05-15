@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Inventory product",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "costPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "name", "price", "stock", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Stock movement",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["IN", "OUT"] },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "date": { "type": "string" },
+        "documentNumber": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "isWholesale": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+    },
+      "required": ["userId", "type", "items", "totalAmount", "date", "createdAt"]
+    },
+    "Worker": {
+      "title": "Worker",
+      "description": "Factory worker",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "name", "role", "createdAt"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Worker attendance record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "workerId": { "type": "string" },
+        "isPresent": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "date", "workerId", "isPresent", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "createdAt": { "type": "number" }
+        }
+      },
+      "description": "User profile"
+    },
+    "users/{userId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "User's products"
+    },
+    "users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "User's transactions"
+    },
+    "users/{userId}/workers/{workerId}": {
+      "schema": { "$ref": "#/entities/Worker" },
+      "description": "User's workers"
+    },
+    "users/{userId}/attendance/{attendanceId}": {
+      "schema": { "$ref": "#/entities/Attendance" },
+      "description": "User's attendance records"
+    }
+  }
+}

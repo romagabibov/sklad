@@ -34,6 +34,7 @@ export interface Worker {
 }
 
 export interface AttendanceRecord {
+  id?: string;
   date: string; // YYYY-MM-DD
   workerId: string;
   isPresent: boolean;

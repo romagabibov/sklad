@@ -55,6 +55,7 @@ const dict: i18nDictionary = {
   stock: { ru: 'Остаток', az: 'Qalıq', en: 'Stock' },
   status: { ru: 'Статус', az: 'Status', en: 'Status' },
   total_value: { ru: 'Общая ст-ть (AZN)', az: 'Ümumi dəyər (AZN)', en: 'Total value (AZN)' },
+  edit: { ru: 'Редактировать', az: 'Redaktə et', en: 'Edit' },
   delete: { ru: 'Удалить', az: 'Sil', en: 'Delete' },
   barcode: { ru: 'Штрихкод', az: 'Barkod', en: 'Barcode' },
   in_stock: { ru: 'В наличии', az: 'Mövcuddur', en: 'In stock' },

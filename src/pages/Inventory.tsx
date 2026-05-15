@@ -1,15 +1,17 @@
 import React, { useState, useRef } from 'react';
 import { useWarehouse } from '../store/WarehouseContext';
-import { Plus, Search, Tag, Download, Trash2, Printer } from 'lucide-react';
+import { Plus, Search, Tag, Download, Trash2, Printer, Pencil } from 'lucide-react';
 import { exportInventoryReport } from '../utils/export';
 import { useLanguage } from '../i18n/LanguageContext';
 import JsBarcode from 'jsbarcode';
+import { Product } from '../types';
 
 export const Inventory: React.FC = () => {
-  const { products, addProduct, deleteProduct } = useWarehouse();
+  const { products, addProduct, deleteProduct, updateProductInfo } = useWarehouse();
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Form State for new product
   const [newProduct, setNewProduct] = useState({
@@ -53,14 +55,45 @@ export const Inventory: React.FC = () => {
     const stockNum = Number(newProduct.stock);
     if (!newProduct.name || priceNum <= 0) return;
     
-    addProduct({
-      ...newProduct,
-      price: priceNum,
-      costPrice: Number(newProduct.costPrice),
-      stock: stockNum
-    });
+    if (editingProduct) {
+      updateProductInfo(editingProduct.id, {
+        name: newProduct.name,
+        sku: newProduct.sku,
+        category: newProduct.category,
+        price: priceNum,
+        costPrice: Number(newProduct.costPrice),
+        stock: stockNum
+      });
+      setEditingProduct(null);
+    } else {
+      addProduct({
+        ...newProduct,
+        price: priceNum,
+        costPrice: Number(newProduct.costPrice),
+        stock: stockNum
+      });
+    }
     
     setIsAddModalOpen(false);
+    setNewProduct({ name: '', sku: '', category: '', price: 0, costPrice: 0, stock: 0 });
+  };
+
+  const handleEditClick = (product: Product) => {
+    setEditingProduct(product);
+    setNewProduct({
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      price: product.price,
+      costPrice: product.costPrice || 0,
+      stock: product.stock
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsAddModalOpen(false);
+    setEditingProduct(null);
     setNewProduct({ name: '', sku: '', category: '', price: 0, costPrice: 0, stock: 0 });
   };
 
@@ -114,6 +147,7 @@ export const Inventory: React.FC = () => {
                 <th className="px-4 py-3 text-center">{t('stock', 'Остаток')}</th>
                 <th className="px-4 py-3 text-center">{t('status', 'Статус')}</th>
                 <th className="px-4 py-3 text-right">{t('total_value', 'Общая ст-ть (AZN)')}</th>
+                <th className="px-4 py-3 text-right"></th>
                 <th className="px-4 py-3 text-right">{t('delete', 'Удалить')}</th>
                 <th className="px-4 py-3 text-right">{t('barcode', 'Штрихкод')}</th>
               </tr>
@@ -144,6 +178,15 @@ export const Inventory: React.FC = () => {
                   </td>
                   <td className="px-4 py-2 text-right text-slate-900 font-bold">
                     {(product.price * product.stock).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <button 
+                      onClick={() => handleEditClick(product)}
+                      className="text-blue-500 hover:text-blue-700 transition-colors p-1"
+                      title={t('edit', 'Редактировать')}
+                    >
+                      <Pencil size={16} />
+                    </button>
                   </td>
                   <td className="px-4 py-2 text-right">
                     <button 
@@ -182,8 +225,8 @@ export const Inventory: React.FC = () => {
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-gray-900">{t('add_new_product', 'Добавить новый товар')}</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-500">&times;</button>
+              <h3 className="text-lg font-bold text-gray-900">{editingProduct ? t('edit', 'Редактировать') : t('add_new_product', 'Добавить новый товар')}</h3>
+              <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-500">&times;</button>
             </div>
             <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
               <div>
@@ -211,7 +254,7 @@ export const Inventory: React.FC = () => {
                 </div>
               </div>
               <div className="pt-4 flex space-x-3">
-                <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">{t('cancel', 'Отмена')}</button>
+                <button type="button" onClick={handleCloseModal} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">{t('cancel', 'Отмена')}</button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{t('add', 'Сохранить')}</button>
               </div>
             </form>
