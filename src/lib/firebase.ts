@@ -50,6 +50,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.error('Firestore Error: ', JSON.stringify(errInfo, null, 2));
+  // Replace throw with an alert/error logging to avoid crashing the app into a white screen.
+  // In production, throwing inside a callback might leave the UI hanging or crash it completely.
+  console.error("Intercepted Firestore permission/data error: ", errInfo.error);
 }

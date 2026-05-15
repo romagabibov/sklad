@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { signInWithPopup, signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Package } from 'lucide-react';
@@ -7,6 +7,18 @@ import { Package } from 'lucide-react';
 export const AuthPage: React.FC = () => {
   const { t } = useLanguage();
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Проверяем результат редиректа после возвращения на страницу
+    getRedirectResult(auth).catch((err) => {
+      console.error("Redirect error: ", err);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError('Этот домен не авторизован в Firebase. Пожалуйста, добавьте его в Authorized domains в Firebase Console.');
+      } else {
+        setError(err.message || 'Ошибка при входе');
+      }
+    });
+  }, []);
 
   const handleLogin = async () => {
     try {
