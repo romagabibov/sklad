@@ -2,6 +2,27 @@ import * as xlsx from 'xlsx';
 import { Transaction, Product } from '../types';
 import { format } from 'date-fns';
 
+// Helper for more reliable downloads in restricted environments (like iframes)
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.target = '_blank'; // Gives better chance in iframes
+  
+  document.body.appendChild(link);
+  try {
+    link.click();
+  } catch (e) {
+    console.error('Download failed', e);
+  } finally {
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 150);
+  }
+};
+
 export const exportTransactionsToExcel = (transactions: Transaction[]) => {
   const data = transactions.map(t => ({
     'ID Транзакции': t.id.slice(0, 8),
@@ -15,7 +36,9 @@ export const exportTransactionsToExcel = (transactions: Transaction[]) => {
   const workbook = xlsx.utils.book_new();
   xlsx.utils.book_append_sheet(workbook, worksheet, 'Транзакции');
   
-  xlsx.writeFile(workbook, `Transactions_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  downloadBlob(blob, `Transactions_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
 };
 
 export const exportTransactionsToCSV = (transactions: Transaction[]) => {
@@ -30,14 +53,8 @@ export const exportTransactionsToCSV = (transactions: Transaction[]) => {
   const worksheet = xlsx.utils.json_to_sheet(data);
   const csvOutput = xlsx.utils.sheet_to_csv(worksheet);
   
-  const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  link.setAttribute("href", url);
-  link.setAttribute("download", `Transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const blob = new Blob(['\uFEFF' + csvOutput], { type: 'text/csv;charset=utf-8;' }); // Added BOM for Excel UTF-8 support
+  downloadBlob(blob, `Transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`);
 };
 
 export const exportInventoryReport = (products: Product[]) => {
@@ -54,7 +71,9 @@ export const exportInventoryReport = (products: Product[]) => {
   const workbook = xlsx.utils.book_new();
   xlsx.utils.book_append_sheet(workbook, worksheet, 'Остатки на Складе');
   
-  xlsx.writeFile(workbook, `Inventory_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  downloadBlob(blob, `Inventory_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
 };
 
 export const exportInventoryToPDF = async (products: Product[]) => {
@@ -107,5 +126,7 @@ export const exportInventoryToPDF = async (products: Product[]) => {
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   
-  html2pdf().set(opt).from(container).save();
+  html2pdf().set(opt).from(container).output('blob').then((blob: Blob) => {
+    downloadBlob(blob, opt.filename);
+  });
 };

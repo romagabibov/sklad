@@ -3,6 +3,26 @@ import autoTable from 'jspdf-autotable';
 import { Transaction } from '../types';
 import { format } from 'date-fns';
 
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.target = '_blank';
+  
+  document.body.appendChild(link);
+  try {
+    link.click();
+  } catch (e) {
+    console.error('Download failed', e);
+  } finally {
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 150);
+  }
+};
+
 export const generateWaybillPDF = (transaction: Transaction) => {
   const doc = new jsPDF();
 
@@ -55,5 +75,6 @@ export const generateWaybillPDF = (transaction: Transaction) => {
   doc.text("Tehvil veren: ____________________", 14, finalY + 30);
   doc.text("Tehvil alan: ____________________", 110, finalY + 30);
 
-  doc.save(`qaime_${transaction.id.slice(0, 8)}.pdf`);
+  const pdfOutput = doc.output('blob');
+  downloadBlob(pdfOutput, `qaime_${transaction.id.slice(0, 8)}.pdf`);
 };
