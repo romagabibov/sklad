@@ -23,11 +23,23 @@ const downloadBlob = (blob: Blob, filename: string) => {
   }
 };
 
+const safeFormat = (date: any, formatStr: string, options?: any) => {
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) {
+      return format(new Date(), formatStr, options);
+    }
+    return format(d, formatStr, options);
+  } catch (e) {
+    return format(new Date(), formatStr, options);
+  }
+};
+
 export const exportTransactionsToExcel = (transactions: Transaction[]) => {
   const data = transactions.map(t => ({
     'ID Транзакции': t.id.slice(0, 8),
     'Тип': t.type === 'IN' ? 'Приход' : 'Расход (Продажа)',
-    'Дата': format(new Date(t.date), 'dd.MM.yyyy HH:mm'),
+    'Дата': safeFormat(t.date, 'dd.MM.yyyy HH:mm'),
     'Товары': t.items.map(i => `${i.productName} (${i.quantity} шт)`).join(', '),
     'Сумма (AZN)': t.totalAmount.toFixed(2),
   }));
@@ -45,7 +57,7 @@ export const exportTransactionsToCSV = (transactions: Transaction[]) => {
   const data = transactions.map(t => ({
     'ID Транзакции': t.id.slice(0, 8),
     'Тип': t.type === 'IN' ? 'Приход' : 'Расход',
-    'Дата': format(new Date(t.date), 'dd.MM.yyyy HH:mm'),
+    'Дата': safeFormat(t.date, 'dd.MM.yyyy HH:mm'),
     'Товары': t.items.map(i => `${i.productName} (${i.quantity} шт)`).join('; '),
     'Сумма AZN': t.totalAmount.toFixed(2),
   }));
@@ -84,7 +96,7 @@ export const exportInventoryToPDF = async (products: Product[]) => {
   container.style.fontFamily = 'sans-serif';
   
   const title = document.createElement('h2');
-  title.innerText = `Склад продукции - ${format(new Date(), 'dd.MM.yyyy')}`;
+  title.innerText = `Anbar məhsulları - ${safeFormat(new Date(), 'dd.MM.yyyy')}`;
   container.appendChild(title);
   
   const table = document.createElement('table');
@@ -95,12 +107,12 @@ export const exportInventoryToPDF = async (products: Product[]) => {
   table.innerHTML = `
     <thead>
       <tr style="background-color: #f8fafc; text-align: left;">
-        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Артикул</th>
-        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Название</th>
-        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Категория</th>
-        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Цена (AZN)</th>
-        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Остаток</th>
-        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Сумма (AZN)</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Artikul</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Məhsulun adı</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Kateqoriya</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Qiymət (AZN)</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Qalıq</th>
+        <th style="padding: 10px; border: 1px solid #e2e8f0; font-size: 14px;">Məbləğ (AZN)</th>
       </tr>
     </thead>
     <tbody>
@@ -120,10 +132,10 @@ export const exportInventoryToPDF = async (products: Product[]) => {
   
   const opt = {
     margin:       10,
-    filename:     `Inventory_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`,
+    filename:     `Inventory_Report_${safeFormat(new Date(), 'yyyy-MM-dd')}.pdf`,
     image:        { type: 'jpeg' as const, quality: 0.98 },
     html2canvas:  { scale: 2 },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
   };
   
   html2pdf().set(opt).from(container).output('blob').then((blob: Blob) => {

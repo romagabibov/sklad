@@ -40,8 +40,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
 
   const tabs = [
     { id: 'dashboard', label: t('dashboard', 'Аналитика'), icon: <LayoutDashboard size={20} /> },
-    { id: 'inventory', label: t('inventory', 'Склад продукции'), icon: <Package size={20} /> },
-    { id: 'incoming', label: t('incoming', 'Поступление с производства'), icon: <ArrowRightLeft size={20} /> },
+    { id: 'inventory', label: t('inventory', 'Склад и Поступление'), icon: <Package size={20} /> },
     { id: 'outgoing', label: t('outgoing', 'Реализация (Опт/Розница)'), icon: <ShoppingCart size={20} /> },
     { id: 'scanner', label: t('scanner', 'Сканер штрихкодов'), icon: <Barcode size={20} /> },
     { id: 'attendance', label: t('attendance', 'Учет рабочего времени'), icon: <Users size={20} /> },

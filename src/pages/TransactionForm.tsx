@@ -67,35 +67,40 @@ export const TransactionForm: React.FC<SalesProps> = ({ type }) => {
     setItems(items.filter((_, i) => i !== idx));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (items.length === 0) return;
     
     let resultTransaction;
-    if (type === 'OUT') {
-      if (isWholesale) {
-        if (!recipientName.trim()) {
-          alert(t('alert_recipient_required', 'Пожалуйста, укажите имя получателя.'));
-          return;
+    try {
+      if (type === 'OUT') {
+        if (isWholesale) {
+          if (!recipientName.trim()) {
+            alert(t('alert_recipient_required', 'Пожалуйста, укажите имя получателя.'));
+            return;
+          }
+          resultTransaction = await processDispatch(items, recipientName);
+        } else {
+          resultTransaction = await processOutgoing(items);
         }
-        resultTransaction = processDispatch(items, recipientName);
       } else {
-        resultTransaction = processOutgoing(items);
+        resultTransaction = await processIncoming(items);
       }
-    } else {
-      resultTransaction = processIncoming(items);
+      
+      setLastTransaction(resultTransaction);
+      setSuccessMessage(t('operation_success', 'Операция успешно выполнена!'));
+      setItems([]);
+      if (type === 'OUT' && isWholesale) setRecipientName('');
+      
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err) {
+      console.error("Transacton processing error:", err);
+      alert("Ошибка при обработке транзакции");
     }
-    
-    setLastTransaction(resultTransaction);
-    setSuccessMessage(t('operation_success', 'Операция успешно выполнена!'));
-    setItems([]);
-    if (type === 'OUT' && isWholesale) setRecipientName('');
-    
-    setTimeout(() => setSuccessMessage(null), 5000);
   };
 
-  const handleGeneratePDF = () => {
+  const handleGeneratePDF = async () => {
     if (lastTransaction) {
-      generateWaybillPDF(lastTransaction);
+      await generateWaybillPDF(lastTransaction);
     }
   };
 

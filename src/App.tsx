@@ -17,8 +17,6 @@ export default function App() {
         return <Dashboard />;
       case 'inventory':
         return <Inventory />;
-      case 'incoming':
-        return <TransactionForm type="IN" />;
       case 'outgoing':
         return <TransactionForm type="OUT" />;
       case 'scanner':

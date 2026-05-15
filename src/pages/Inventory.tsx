@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useWarehouse } from '../store/WarehouseContext';
 import { Plus, Search, Tag, Download, Trash2, Printer, Pencil } from 'lucide-react';
 import { exportInventoryReport, exportInventoryToPDF } from '../utils/export';
+import { generateWaybillPDF } from '../utils/pdf';
 import { useLanguage } from '../i18n/LanguageContext';
 import JsBarcode from 'jsbarcode';
 import { Product } from '../types';
@@ -12,6 +13,7 @@ export const Inventory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [generateReceipt, setGenerateReceipt] = useState(false);
 
   // Form State for new product
   const [newProduct, setNewProduct] = useState({
@@ -49,14 +51,14 @@ export const Inventory: React.FC = () => {
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const priceNum = Number(newProduct.price);
     const stockNum = Number(newProduct.stock);
     if (!newProduct.name || priceNum <= 0) return;
     
     if (editingProduct) {
-      updateProductInfo(editingProduct.id, {
+      await updateProductInfo(editingProduct.id, {
         name: newProduct.name,
         sku: newProduct.sku,
         category: newProduct.category,
@@ -66,16 +68,33 @@ export const Inventory: React.FC = () => {
       });
       setEditingProduct(null);
     } else {
-      addProduct({
+      await addProduct({
         ...newProduct,
         price: priceNum,
         costPrice: Number(newProduct.costPrice),
         stock: stockNum
       });
     }
+
+    if (generateReceipt && stockNum > 0) {
+      await generateWaybillPDF({
+        id: Math.random().toString(36).substring(2, 10).toUpperCase(),
+        type: 'IN',
+        date: new Date().toISOString(),
+        items: [{
+          productId: editingProduct?.id || 'new',
+          productName: newProduct.name,
+          quantity: stockNum,
+          price: priceNum,
+          total: priceNum * stockNum
+        }],
+        totalAmount: priceNum * stockNum
+      });
+    }
     
     setIsAddModalOpen(false);
     setNewProduct({ name: '', sku: '', category: '', price: 0, costPrice: 0, stock: 0 });
+    setGenerateReceipt(false);
   };
 
   const handleEditClick = (product: Product) => {
@@ -88,6 +107,7 @@ export const Inventory: React.FC = () => {
       costPrice: product.costPrice || 0,
       stock: product.stock
     });
+    setGenerateReceipt(false);
     setIsAddModalOpen(true);
   };
 
@@ -95,6 +115,7 @@ export const Inventory: React.FC = () => {
     setIsAddModalOpen(false);
     setEditingProduct(null);
     setNewProduct({ name: '', sku: '', category: '', price: 0, costPrice: 0, stock: 0 });
+    setGenerateReceipt(false);
   };
 
   return (
@@ -102,8 +123,6 @@ export const Inventory: React.FC = () => {
       <header className="bg-white border-b border-slate-200 p-4 md:px-6 md:h-auto min-h-[64px] flex flex-col sm:flex-row items-start sm:items-center justify-between -mx-4 -mt-4 md:-mx-6 md:-mt-6 mb-4 md:mb-6 gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-slate-800">{t('inventory', 'Склад продукции')}</h1>
-          <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
-          <span className="text-sm text-slate-500 hidden sm:block">{t('inventory_management', 'Управление остатками и добавление товаров')}</span>
         </div>
         <div className="flex gap-2 mt-2 sm:mt-0">
           <button 
@@ -121,7 +140,10 @@ export const Inventory: React.FC = () => {
             <span>EXCEL</span>
           </button>
           <button 
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              setIsAddModalOpen(true);
+              setGenerateReceipt(false);
+            }}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm flex items-center gap-2 transition-colors uppercase"
           >
             <Plus size={14} />
@@ -218,7 +240,7 @@ export const Inventory: React.FC = () => {
               ))}
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     {t('no_products_found', 'Товары не найдены')}
                   </td>
                 </tr>
@@ -256,10 +278,24 @@ export const Inventory: React.FC = () => {
                   <input required min="0" step="0.01" type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('initial_stock', 'Начальный остаток')}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('initial_stock', 'Начальный / текущий остаток')}</label>
                   <input required min="0" type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: e.target.value === '' ? '' : parseInt(e.target.value, 10)})} />
                 </div>
               </div>
+
+              <div className="pt-2 flex items-center">
+                <input 
+                  type="checkbox" 
+                  id="generateReceipt" 
+                  checked={generateReceipt}
+                  onChange={(e) => setGenerateReceipt(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <label htmlFor="generateReceipt" className="ml-2 text-sm text-gray-700 font-medium cursor-pointer">
+                  Сгенерировать PDF чек (Поступление)
+                </label>
+              </div>
+
               <div className="pt-4 flex space-x-3">
                 <button type="button" onClick={handleCloseModal} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">{t('cancel', 'Отмена')}</button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{t('add', 'Сохранить')}</button>
