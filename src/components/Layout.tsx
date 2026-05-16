@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Package, ShoppingCart, ArrowRightLeft, LayoutDashboard, FileText, Truck, Barcode, Users, Menu, X, Download, LogOut } from 'lucide-react';
+import { Package, ShoppingCart, ArrowRightLeft, LayoutDashboard, FileText, Truck, Barcode, Users, Menu, X, Download, LogOut, Shield } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useWarehouse } from '../store/WarehouseContext';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 
@@ -12,6 +13,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
   const { lang, setLang, t } = useLanguage();
+  const { profile } = useWarehouse();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -46,6 +48,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
     { id: 'attendance', label: t('attendance', 'Учет рабочего времени'), icon: <Users size={20} /> },
     { id: 'history', label: t('history', 'Журнал операций'), icon: <FileText size={20} /> },
   ];
+
+  if (profile && profile.role === 'superadmin') {
+    tabs.push({ id: 'admin', label: 'Пользователи', icon: <Shield size={20} /> });
+  }
 
   const handleSetTab = (id: string) => {
     setActiveTab(id);

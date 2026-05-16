@@ -7,6 +7,7 @@ import { TransactionForm } from './pages/TransactionForm';
 import { History } from './pages/History';
 import { BarcodeScanner } from './pages/BarcodeScanner';
 import { Attendance } from './pages/Attendance';
+import { AdminUsers } from './pages/AdminUsers';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -25,6 +26,8 @@ export default function App() {
         return <Attendance />;
       case 'history':
         return <History />;
+      case 'admin':
+        return <AdminUsers />;
       default:
         return <Dashboard />;
     }

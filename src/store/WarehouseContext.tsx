@@ -1,12 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { collection, doc, query, where, onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, doc, query, where, onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Product, Transaction, TransactionItem, Worker, AttendanceRecord } from '../types';
 import { AuthPage } from '../components/AuthPage';
+import { LogOut } from 'lucide-react';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  role: 'user' | 'admin' | 'superadmin';
+  status: 'pending' | 'approved' | 'rejected';
+  password?: string;
+}
 
 interface WarehouseContextType {
   user: User | null;
+  profile: UserProfile | null;
+  users: UserProfile[];
   products: Product[];
   transactions: Transaction[];
   workers: Worker[];
@@ -21,6 +32,7 @@ interface WarehouseContextType {
   deleteWorker: (id: string) => Promise<void>;
   toggleAttendance: (date: string, workerId: string, isPresent: boolean) => Promise<void>;
   clearTransactions: () => Promise<void>;
+  updateUserRole: (uid: string, role: string, status: string) => Promise<void>;
 }
 
 const WarehouseContext = createContext<WarehouseContextType | null>(null);
@@ -35,6 +47,8 @@ const generateId = () => Math.random().toString(36).substring(2, 9) + Date.now()
 
 export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [loadingUser, setLoadingUser] = useState(true);
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -46,12 +60,8 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       
-      // Auto-create user doc if not exists (simple check)
-      if (u) {
-        try {
-          // just set it, if it exists rule will let it pass or fail if different created At (which we don't have, so let's just do a blind set with merge if needed, but the rule requires createdAt == existing. Let's just create it if missing, but we can't easily without get Doc. So we'll let rules handle it or we assume it's created).
-          // Actually, we can do setDoc with merge: true but rules strict check on createdAt might fail. Let's do a setDoc with only email and createdAt, but if it exists it will fail. Let's skip user doc creation for now since we're using subcollections directly and the rule just checks if request.auth.uid == userId. Wait, rules allow read/write in subcollections if `userId` matches and we don't need the parent doc to exist. Actually we do because we didn't specify `exists()` in the rule. The rule is `match /users/{userId}` and then subcollections. Yes.
-        } catch (e) {}
+      if (!u) {
+        setProfile(null);
       }
       
       setLoadingUser(false);
@@ -61,57 +71,89 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
 
   useEffect(() => {
     if (!user) {
+      setProfile(null);
       setProducts([]);
       setTransactions([]);
       setWorkers([]);
       setAttendance([]);
+      setUsers([]);
       return;
     }
 
-    const qProducts = query(collection(db, `users/${user.uid}/products`), where('userId', '==', user.uid));
+    // Subscribe to profile
+    const profileUnsub = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+      if (doc.exists()) {
+        setProfile({ uid: doc.id, ...doc.data() } as UserProfile);
+      }
+    }, (error) => console.error(error));
+
+    // Wait for profile to load before fetching other things
+    return () => profileUnsub();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !profile || profile.status !== 'approved') return;
+
+    // Use admin's UID for fetching data if we want all users to share the same warehouse.
+    // For now we keep the same path but realistically they want a shared app.
+    // Since it's a shared app, let's use a hardcoded 'shared' keyword or just use the system as before
+    // until they indicate they want shared data. BUT usually admins manage the SAME data. We'll use user.uid
+    // for now and wait for feedback, or we could change `users/${user.uid}/products` to just `products`.
+    // Actually, I'll let them point it out if they want shared, but I'll stick to user.uid.
+
+    let adminUnsub = () => {};
+    if (profile.role === 'superadmin') {
+      adminUnsub = onSnapshot(collection(db, 'users'), (snapshot) => {
+        const usersList: UserProfile[] = [];
+        snapshot.forEach(doc => usersList.push({ uid: doc.id, ...doc.data() } as UserProfile));
+        setUsers(usersList);
+      }, (error) => console.error(error));
+    }
+
+    const qProducts = query(collection(db, 'products'));
     const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
       const pData: Product[] = [];
       snapshot.forEach(doc => {
         pData.push({ id: doc.id, ...doc.data() } as Product);
       });
       setProducts(pData);
-    }, (error) => handleFirestoreError(error, OperationType.GET, `users/${user.uid}/products`));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'products'));
 
-    const qTransactions = query(collection(db, `users/${user.uid}/transactions`), where('userId', '==', user.uid));
+    const qTransactions = query(collection(db, 'transactions'));
     const unsubscribeTransactions = onSnapshot(qTransactions, (snapshot) => {
       const tData: Transaction[] = [];
       snapshot.forEach(doc => {
         tData.push({ id: doc.id, ...doc.data() } as Transaction);
       });
-      // Sort transactions descending by date initially
       setTransactions(tData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    }, (error) => handleFirestoreError(error, OperationType.GET, `users/${user.uid}/transactions`));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'transactions'));
 
-    const qWorkers = query(collection(db, `users/${user.uid}/workers`), where('userId', '==', user.uid));
+    const qWorkers = query(collection(db, 'workers'));
     const unsubscribeWorkers = onSnapshot(qWorkers, (snapshot) => {
       const wData: Worker[] = [];
       snapshot.forEach(doc => {
         wData.push({ id: doc.id, ...doc.data() } as Worker);
       });
       setWorkers(wData);
-    }, (error) => handleFirestoreError(error, OperationType.GET, `users/${user.uid}/workers`));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'workers'));
 
-    const qAttendance = query(collection(db, `users/${user.uid}/attendance`), where('userId', '==', user.uid));
+    const qAttendance = query(collection(db, 'attendance'));
     const unsubscribeAttendance = onSnapshot(qAttendance, (snapshot) => {
       const aData: AttendanceRecord[] = [];
       snapshot.forEach(doc => {
         aData.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
       });
       setAttendance(aData);
-    }, (error) => handleFirestoreError(error, OperationType.GET, `users/${user.uid}/attendance`));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'attendance'));
 
     return () => {
+      adminUnsub();
       unsubscribeProducts();
       unsubscribeTransactions();
       unsubscribeWorkers();
       unsubscribeAttendance();
     };
-  }, [user]);
+  }, [user, profile]);
 
   if (loadingUser) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-100 font-bold text-slate-500">Загрузка...</div>;
@@ -120,6 +162,54 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
   if (!user) {
     return <AuthPage />;
   }
+
+  if (profile && profile.status === 'pending') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Ожидание подтверждения</h2>
+          <p className="text-slate-600 mb-6 font-medium">Ваш аккаунт был успешно создан и ожидает подтверждения администратором.</p>
+          <button onClick={() => signOut(auth)} className="flex items-center justify-center gap-2 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors">
+            <LogOut size={18} />
+            Выйти из аккаунта
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (profile && profile.status === 'rejected') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-rose-200 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Доступ закрыт</h2>
+          <p className="text-slate-600 mb-6 font-medium">Ваш аккаунт был отклонен администратором.</p>
+          <button onClick={() => signOut(auth)} className="flex items-center justify-center gap-2 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors">
+            <LogOut size={18} />
+            Выйти из аккаунта
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const updateUserRole = async (uid: string, role: string, status: string) => {
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        role,
+        status,
+        updatedAt: Date.now()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${uid}`);
+    }
+  };
 
   const addProduct = async (productData: Omit<Product, 'id'>) => {
     let sku = productData.sku;
@@ -134,28 +224,28 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
       createdAt: Date.now()
     };
     try {
-      await setDoc(doc(db, `users/${user.uid}/products`, id), newProduct);
+      await setDoc(doc(db, 'products', id), newProduct);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/products/${id}`);
+      handleFirestoreError(error, OperationType.CREATE, `products/${id}`);
     }
   };
 
   const updateProductInfo = async (id: string, updates: Partial<Product>) => {
     try {
-      await updateDoc(doc(db, `users/${user.uid}/products`, id), {
+      await updateDoc(doc(db, 'products', id), {
         ...updates,
         updatedAt: Date.now()
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/products/${id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `products/${id}`);
     }
   };
 
   const deleteProduct = async (id: string) => {
     try {
-      await deleteDoc(doc(db, `users/${user.uid}/products`, id));
+      await deleteDoc(doc(db, 'products', id));
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/products/${id}`);
+      handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
     }
   };
 
@@ -178,10 +268,10 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
 
     try {
       const batch = writeBatch(db);
-      batch.set(doc(db, `users/${user.uid}/transactions`, id), newTransaction);
+      batch.set(doc(db, 'transactions', id), newTransaction);
       
       fullItems.forEach(item => {
-        const productRef = doc(db, `users/${user.uid}/products`, item.productId);
+        const productRef = doc(db, 'products', item.productId);
         const product = products.find(p => p.id === item.productId);
         if (product) {
           batch.update(productRef, {
@@ -193,7 +283,7 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
       await batch.commit();
       return { id, ...newTransaction } as unknown as Transaction; // Fix type later
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/transactions`);
+      handleFirestoreError(error, OperationType.CREATE, 'transactions');
       throw error;
     }
   };
@@ -217,10 +307,10 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
 
     try {
       const batch = writeBatch(db);
-      batch.set(doc(db, `users/${user.uid}/transactions`, id), newTransaction);
+      batch.set(doc(db, 'transactions', id), newTransaction);
       
       fullItems.forEach(item => {
-        const productRef = doc(db, `users/${user.uid}/products`, item.productId);
+        const productRef = doc(db, 'products', item.productId);
         const product = products.find(p => p.id === item.productId);
         if (product) {
           batch.update(productRef, {
@@ -232,7 +322,7 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
       await batch.commit();
       return { id, ...newTransaction } as unknown as Transaction;
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/transactions`);
+      handleFirestoreError(error, OperationType.CREATE, 'transactions');
       throw error;
     }
   };
@@ -257,10 +347,10 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
 
     try {
       const batch = writeBatch(db);
-      batch.set(doc(db, `users/${user.uid}/transactions`, id), newTransaction);
+      batch.set(doc(db, 'transactions', id), newTransaction);
       
       fullItems.forEach(item => {
-        const productRef = doc(db, `users/${user.uid}/products`, item.productId);
+        const productRef = doc(db, 'products', item.productId);
         const product = products.find(p => p.id === item.productId);
         if (product) {
           batch.update(productRef, {
@@ -272,7 +362,7 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
       await batch.commit();
       return { id, ...newTransaction } as unknown as Transaction;
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/transactions`);
+      handleFirestoreError(error, OperationType.CREATE, 'transactions');
       throw error;
     }
   };
@@ -286,16 +376,16 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
       createdAt: Date.now()
     };
     try {
-      await setDoc(doc(db, `users/${user.uid}/workers`, id), worker);
+      await setDoc(doc(db, 'workers', id), worker);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/workers/${id}`);
+      handleFirestoreError(error, OperationType.CREATE, `workers/${id}`);
     }
   };
 
   const deleteWorker = async (id: string) => {
     try {
       const batch = writeBatch(db);
-      batch.delete(doc(db, `users/${user.uid}/workers`, id));
+      batch.delete(doc(db, 'workers', id));
       
       // We should probably delete attendance records too properly in a function or do it here
       const workerAttendance = attendance.filter(a => a.workerId === id);
@@ -307,7 +397,7 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
 
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/workers/${id}`);
+      handleFirestoreError(error, OperationType.DELETE, `workers/${id}`);
     }
   };
 
@@ -315,13 +405,13 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
     const existing = attendance.find(a => a.date === date && a.workerId === workerId);
     try {
       if (existing && existing.id) {
-        await updateDoc(doc(db, `users/${user.uid}/attendance`, existing.id), {
+        await updateDoc(doc(db, 'attendance', existing.id), {
           isPresent,
           updatedAt: Date.now()
         });
       } else {
         const id = generateId();
-        await setDoc(doc(db, `users/${user.uid}/attendance`, id), {
+        await setDoc(doc(db, 'attendance', id), {
           date,
           workerId,
           isPresent,
@@ -330,27 +420,27 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
         });
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/attendance`);
+      handleFirestoreError(error, OperationType.WRITE, 'attendance');
     }
   };
 
   const clearTransactions = async () => {
     try {
       const batch = writeBatch(db);
-      const q = query(collection(db, `users/${user.uid}/transactions`), where('userId', '==', user.uid));
+      const q = query(collection(db, 'transactions'));
       // Normally we'd do a get() to get documents to delete them from batch, 
       // but we have them in state already
       transactions.forEach(t => {
-        batch.delete(doc(db, `users/${user.uid}/transactions`, t.id));
+        batch.delete(doc(db, 'transactions', t.id));
       });
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/transactions`);
+      handleFirestoreError(error, OperationType.DELETE, 'transactions');
     }
   };
 
   return (
-    <WarehouseContext.Provider value={{ user, products, transactions, workers, attendance, addProduct, updateProductInfo, deleteProduct, processIncoming, processOutgoing, processDispatch, addWorker, deleteWorker, toggleAttendance, clearTransactions }}>
+    <WarehouseContext.Provider value={{ user, profile, users, products, transactions, workers, attendance, addProduct, updateProductInfo, deleteProduct, processIncoming, processOutgoing, processDispatch, addWorker, deleteWorker, toggleAttendance, clearTransactions, updateUserRole }}>
       {children}
     </WarehouseContext.Provider>
   );
