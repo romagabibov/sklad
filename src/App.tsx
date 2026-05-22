@@ -3,9 +3,7 @@ import { WarehouseProvider } from './store/WarehouseContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Inventory } from './pages/Inventory';
-import { TransactionForm } from './pages/TransactionForm';
 import { History } from './pages/History';
-import { BarcodeScanner } from './pages/BarcodeScanner';
 import { Attendance } from './pages/Attendance';
 import { AdminUsers } from './pages/AdminUsers';
 
@@ -18,10 +16,6 @@ export default function App() {
         return <Dashboard />;
       case 'inventory':
         return <Inventory />;
-      case 'outgoing':
-        return <TransactionForm type="OUT" />;
-      case 'scanner':
-        return <BarcodeScanner />;
       case 'attendance':
         return <Attendance />;
       case 'history':

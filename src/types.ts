@@ -1,5 +1,11 @@
 export type TransactionType = 'IN' | 'OUT' | 'DISPATCH';
 
+export interface ProductVariant {
+  id?: string;
+  name: string; // e.g. "красная", "синяя"
+  stock: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -7,7 +13,8 @@ export interface Product {
   category: string;
   price: number;      // Selling price
   costPrice: number;  // Purchase price (optional for basic setups)
-  stock: number;      // Current stock level
+  stock: number;      // Current stock level (could be calculated or generic)
+  variants?: ProductVariant[];
 }
 
 export interface TransactionItem {

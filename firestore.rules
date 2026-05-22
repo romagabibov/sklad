@@ -68,7 +68,7 @@ service cloud.firestore {
     // Shared Collections for the App
     match /products/{productId} {
       function isValidProduct(data) {
-        return data.size() >= 5 && data.size() <= 9
+        return data.size() >= 5 && data.size() <= 10
           && data.keys().hasAll(['userId', 'name', 'price', 'stock', 'createdAt'])
           && data.name is string && data.name.size() <= 256 && data.name.size() > 0
           && data.price is number && data.price >= 0
@@ -77,6 +77,7 @@ service cloud.firestore {
           && (!('sku' in data) || (data.sku is string && data.sku.size() <= 128))
           && (!('category' in data) || (data.category is string && data.category.size() <= 128))
           && (!('costPrice' in data) || (data.costPrice is number && data.costPrice >= 0))
+          && (!('variants' in data) || (data.variants is list))
           && (!('updatedAt' in data) || data.updatedAt is int);
       }
 
@@ -85,7 +86,7 @@ service cloud.firestore {
       allow update: if isApproved() && isValidId(productId) 
                     && isValidProduct(incoming()) 
                     && incoming().createdAt == existing().createdAt
-                    && incoming().diff(existing()).affectedKeys().hasAny(['name', 'sku', 'category', 'price', 'costPrice', 'stock', 'updatedAt']);
+                    && incoming().diff(existing()).affectedKeys().hasAny(['name', 'sku', 'category', 'price', 'costPrice', 'stock', 'variants', 'updatedAt']);
       allow delete: if isAdmin() || (isApproved() && existing().userId == request.auth.uid);
     }
     

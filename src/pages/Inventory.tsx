@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useWarehouse } from '../store/WarehouseContext';
-import { Plus, Search, Tag, Download, Trash2, Printer, Pencil } from 'lucide-react';
+import { Plus, Search, Tag, Download, Trash2, Printer, Pencil, ChevronDown, ChevronRight, Save, X } from 'lucide-react';
 import { exportInventoryReport, exportInventoryToPDF } from '../utils/export';
 import { generateWaybillPDF } from '../utils/pdf';
 import { useLanguage } from '../i18n/LanguageContext';
-import JsBarcode from 'jsbarcode';
-import { Product } from '../types';
+import { Product, ProductVariant } from '../types';
 
 export const Inventory: React.FC = () => {
   const { products, addProduct, deleteProduct, updateProductInfo } = useWarehouse();
@@ -14,6 +13,12 @@ export const Inventory: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [generateReceipt, setGenerateReceipt] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  
+  // Variant states
+  const [newVariant, setNewVariant] = useState<{ productId: string, name: string, stock: number | string } | null>(null);
+  const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
+  const [editVariantStockValue, setEditVariantStockValue] = useState<number | string>("");
 
   // Form State for new product
   const [newProduct, setNewProduct] = useState({
@@ -26,30 +31,12 @@ export const Inventory: React.FC = () => {
     }
   };
 
-  const handleDownloadBarcode = (sku: string, name: string) => {
-    if (!sku) return;
-    const canvas = document.createElement('canvas');
-    JsBarcode(canvas, sku, {
-      format: "CODE128",
-      displayValue: true,
-      text: `${name} | SKU: ${sku}`,
-      fontSize: 16,
-      margin: 10,
-      width: 2,
-      height: 80
-    });
-    
-    const link = document.createElement('a');
-    link.href = canvas.toDataURL('image/png');
-    link.download = `barcode-${sku}.png`;
-    link.click();
-  };
-
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +51,8 @@ export const Inventory: React.FC = () => {
         category: newProduct.category,
         price: priceNum,
         costPrice: Number(newProduct.costPrice),
-        stock: stockNum
+        stock: stockNum,
+        variants: editingProduct.variants
       });
       setEditingProduct(null);
     } else {
@@ -72,7 +60,8 @@ export const Inventory: React.FC = () => {
         ...newProduct,
         price: priceNum,
         costPrice: Number(newProduct.costPrice),
-        stock: stockNum
+        stock: stockNum,
+        variants: []
       });
     }
 
@@ -117,6 +106,247 @@ export const Inventory: React.FC = () => {
     setNewProduct({ name: '', sku: '', category: '', price: 0, costPrice: 0, stock: 0 });
     setGenerateReceipt(false);
   };
+
+  const calculateProductStock = (product: Product, updatedVariants: ProductVariant[]) => {
+    if (updatedVariants.length > 0) {
+      return updatedVariants.reduce((sum, v) => sum + v.stock, 0);
+    }
+    return 0;
+  };
+
+  const handleAddVariant = async (product: Product) => {
+    if (!newVariant || !newVariant.name) return;
+    const variantStock = Number(newVariant.stock) || 0;
+    
+    const variant: ProductVariant = {
+      id: Math.random().toString(36).substring(2, 9),
+      name: newVariant.name,
+      stock: variantStock
+    };
+
+    const updatedVariants = [...(product.variants || []), variant];
+    const newTotalStock = calculateProductStock(product, updatedVariants);
+
+    await updateProductInfo(product.id, {
+      ...product,
+      variants: updatedVariants,
+      stock: newTotalStock
+    });
+
+    setNewVariant(null);
+  };
+
+  const handleEditVariantStock = async (product: Product, variantId: string, newStock: number) => {
+    const updatedVariants = (product.variants || []).map(v => 
+      v.id === variantId ? { ...v, stock: newStock } : v
+    );
+    const newTotalStock = calculateProductStock(product, updatedVariants);
+
+    await updateProductInfo(product.id, {
+      ...product,
+      variants: updatedVariants,
+      stock: newTotalStock
+    });
+  };
+
+  const handleDeleteVariant = async (product: Product, variantId: string) => {
+    const updatedVariants = (product.variants || []).filter(v => v.id !== variantId);
+    const newTotalStock = calculateProductStock(product, updatedVariants);
+
+    await updateProductInfo(product.id, {
+      ...product,
+      variants: updatedVariants,
+      stock: newTotalStock
+    });
+  };
+
+  if (selectedProduct) {
+    const product = products.find(p => p.id === selectedProduct.id) || selectedProduct;
+    return (
+      <div className="space-y-6">
+        <header className="bg-white border-b border-slate-200 p-4 md:px-6 md:h-auto min-h-[64px] flex flex-col sm:flex-row items-start sm:items-center justify-between -mx-4 -mt-4 md:-mx-6 md:-mt-6 mb-4 md:mb-6 gap-4 sm:gap-0">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setSelectedProduct(null)}
+              className="text-slate-500 hover:text-slate-800 transition-colors bg-slate-100 hover:bg-slate-200 p-2 rounded-lg"
+            >
+              <ChevronDown size={20} className="rotate-90 hidden" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-left"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+            </button>
+            <h1 className="text-xl font-bold text-slate-800">{product.name} — Варианты</h1>
+          </div>
+          <div className="flex gap-2 mt-2 sm:mt-0">
+            {newVariant?.productId !== product.id && (
+              <button 
+                onClick={() => setNewVariant({ productId: product.id, name: '', stock: 0 })}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm flex items-center gap-2 transition-colors uppercase"
+              >
+                <Plus size={14} />
+                <span>Добавить вариант</span>
+              </button>
+            )}
+          </div>
+        </header>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-6 max-w-4xl mx-auto w-full">
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">{product.name}</h2>
+              <p className="text-sm text-slate-500">Артикул: {product.sku || 'Без артикула'} • Категория: {product.category || 'Общая'}</p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-slate-800">{product.stock} шт</div>
+              <p className="text-xs text-slate-500">Общий остаток</p>
+            </div>
+          </div>
+
+          <div className="bg-white border text-sm border-slate-200 rounded shadow-sm overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-3 w-1/2">Название варианта (напр. Цвет / Размер)</th>
+                  <th className="px-6 py-3 w-1/4 text-center">Количество</th>
+                  <th className="px-6 py-3 text-right">Действия</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(!product.variants || product.variants.length === 0) && newVariant?.productId !== product.id && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-8 text-slate-400 text-center italic">
+                      Нет вариантов. Вы можете добавить подкатегории, такие как цвета или размеры.
+                    </td>
+                  </tr>
+                )}
+                
+                {product.variants?.map(variant => (
+                  <tr key={variant.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3 font-medium text-slate-800">{variant.name}</td>
+                    <td className="px-6 py-3">
+                      {editingVariantId === variant.id ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <input 
+                            type="number"
+                            autoFocus
+                            className="w-24 text-center font-mono text-base border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 py-1"
+                            value={editVariantStockValue}
+                            onChange={(e) => setEditVariantStockValue(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleEditVariantStock(product, variant.id!, Number(editVariantStockValue) || 0);
+                                setEditingVariantId(null);
+                              }
+                              if (e.key === 'Escape') setEditingVariantId(null);
+                            }}
+                          />
+                          <button 
+                            onClick={() => {
+                              handleEditVariantStock(product, variant.id!, Number(editVariantStockValue) || 0);
+                              setEditingVariantId(null);
+                            }}
+                            className="text-emerald-700 hover:text-emerald-900 bg-emerald-100 p-2 rounded-lg transition-colors"
+                          >
+                            <Save size={16} />
+                          </button>
+                          <button 
+                            onClick={() => setEditingVariantId(null)}
+                            className="text-slate-500 hover:text-slate-700 bg-slate-100 p-2 rounded-lg transition-colors"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-3">
+                          <button 
+                            onClick={() => handleEditVariantStock(product, variant.id!, Math.max(0, variant.stock - 1))}
+                            className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-bold text-lg focus:outline-none"
+                          >-</button>
+                          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                            <span className="w-16 text-center font-mono font-medium text-base py-1">{variant.stock}</span>
+                            <button
+                              onClick={() => {
+                                setEditingVariantId(variant.id!);
+                                setEditVariantStockValue(variant.stock);
+                              }}
+                              className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors p-2 border-l border-slate-200 focus:outline-none"
+                              title="Редактировать количество"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
+                          <button 
+                            onClick={() => handleEditVariantStock(product, variant.id!, variant.stock + 1)}
+                            className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-bold text-lg focus:outline-none"
+                          >+</button>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <button 
+                        onClick={() => handleDeleteVariant(product, variant.id!)}
+                        className="text-rose-500 hover:text-rose-700 bg-rose-50 p-2 rounded-lg transition-colors"
+                        title="Удалить вариант"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+
+                {newVariant?.productId === product.id && (
+                  <tr className="bg-blue-50/30">
+                    <td className="px-6 py-3">
+                      <input 
+                        autoFocus
+                        type="text" 
+                        placeholder="Например: Красная рубашка, XL" 
+                        className="w-full text-sm px-3 py-2 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={newVariant.name}
+                        onChange={(e) => setNewVariant({ ...newVariant, name: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAddVariant(product);
+                          if (e.key === 'Escape') setNewVariant(null);
+                        }}
+                      />
+                    </td>
+                    <td className="px-6 py-3">
+                      <input 
+                        type="number" 
+                        placeholder="Кол-во" 
+                        className="w-24 mx-auto block text-sm px-3 py-2 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                        value={newVariant.stock}
+                        onChange={(e) => setNewVariant({ ...newVariant, stock: e.target.value === '' ? '' : parseInt(e.target.value, 10) })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAddVariant(product);
+                          if (e.key === 'Escape') setNewVariant(null);
+                        }}
+                      />
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => setNewVariant(null)}
+                          className="text-slate-500 hover:text-slate-700 bg-slate-100 p-2 rounded-lg transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleAddVariant(product)}
+                          className="text-emerald-700 hover:text-emerald-800 bg-emerald-100 p-2 rounded-lg transition-colors font-bold disabled:opacity-50"
+                          disabled={!newVariant.name}
+                        >
+                          <Save size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -178,12 +408,18 @@ export const Inventory: React.FC = () => {
                 <th className="px-4 py-3 text-right">{t('total_value', 'Общая ст-ть (AZN)')}</th>
                 <th className="px-4 py-3 text-right"></th>
                 <th className="px-4 py-3 text-right">{t('delete', 'Удалить')}</th>
-                <th className="px-4 py-3 text-right">{t('barcode', 'Штрихкод')}</th>
               </tr>
             </thead>
             <tbody className="text-xs divide-y divide-slate-50">
               {filteredProducts.map(product => (
-                <tr key={product.id} className="hover:bg-slate-50 transition-colors">
+                <tr 
+                  key={product.id}
+                  className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest('button')) return;
+                    setSelectedProduct(product);
+                  }}
+                >
                   <td className="px-4 py-2">
                     <div className="font-medium text-slate-900">{product.name}</div>
                     <div className="text-[10px] text-slate-500 mt-0.5">{product.sku || 'Без артикула'}</div>
@@ -226,21 +462,11 @@ export const Inventory: React.FC = () => {
                       <Trash2 size={16} />
                     </button>
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    <button 
-                      onClick={() => handleDownloadBarcode(product.sku, product.name)}
-                      className="text-slate-500 hover:text-blue-600 transition-colors p-1"
-                      title={t('download_barcode', 'Скачать штрихкод')}
-                      disabled={!product.sku}
-                    >
-                      <Printer size={16} />
-                    </button>
-                  </td>
                 </tr>
               ))}
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                     {t('no_products_found', 'Товары не найдены')}
                   </td>
                 </tr>
@@ -262,38 +488,15 @@ export const Inventory: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('product_name', 'Название товара')}</label>
                 <input required type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('sku_barcode', 'Артикул (SKU)')}</label>
-                  <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={newProduct.sku} onChange={e => setNewProduct({...newProduct, sku: e.target.value})} />
-                </div>
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('category', 'Категория')}</label>
                   <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('price_azn', 'Цена продажи (AZN)')}</label>
                   <input required min="0" step="0.01" type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value === '' ? '' : parseFloat(e.target.value)})} />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('initial_stock', 'Начальный / текущий остаток')}</label>
-                  <input required min="0" type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: e.target.value === '' ? '' : parseInt(e.target.value, 10)})} />
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center">
-                <input 
-                  type="checkbox" 
-                  id="generateReceipt" 
-                  checked={generateReceipt}
-                  onChange={(e) => setGenerateReceipt(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                />
-                <label htmlFor="generateReceipt" className="ml-2 text-sm text-gray-700 font-medium cursor-pointer">
-                  Сгенерировать PDF чек (Поступление)
-                </label>
               </div>
 
               <div className="pt-4 flex space-x-3">

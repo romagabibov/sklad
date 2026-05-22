@@ -232,8 +232,9 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
 
   const updateProductInfo = async (id: string, updates: Partial<Product>) => {
     try {
+      const { id: _id, ...cleanUpdates } = updates as any;
       await updateDoc(doc(db, 'products', id), {
-        ...updates,
+        ...cleanUpdates,
         updatedAt: Date.now()
       });
     } catch (error) {
