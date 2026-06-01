@@ -94,7 +94,7 @@ service cloud.firestore {
       function isValidTransaction(data) {
         return data.size() >= 6 && data.size() <= 10
           && data.keys().hasAll(['userId', 'type', 'items', 'totalAmount', 'date', 'createdAt'])
-          && data.type in ['IN', 'OUT', 'DISPATCH']
+          && data.type in ['IN', 'OUT', 'DISPATCH', 'CUT']
           && data.items is list && data.items.size() <= 100
           && data.items.size() > 0 
           && data.totalAmount is number && data.totalAmount >= 0
@@ -108,17 +108,19 @@ service cloud.firestore {
 
       allow read: if isApproved();
       allow create: if isApproved() && isValidId(transactionId) && isValidTransaction(incoming());
+      allow update: if isApproved() && isValidId(transactionId) && isValidTransaction(incoming()) && incoming().createdAt == existing().createdAt;
       allow delete: if isAdmin() || (isApproved() && existing().userId == request.auth.uid);
     }
 
     match /workers/{workerId} {
       function isValidWorker(data) {
-        return data.size() >= 4 && data.size() <= 5
+        return data.size() >= 4 && data.size() <= 6
           && data.keys().hasAll(['userId', 'name', 'role', 'createdAt'])
           && data.name is string && data.name.size() <= 256 && data.name.size() > 0
           && data.role is string && data.role.size() <= 128
           && data.createdAt is int
-          && (!('updatedAt' in data) || data.updatedAt is int);
+          && (!('updatedAt' in data) || data.updatedAt is int)
+          && (!('salary' in data) || (data.salary is number && data.salary >= 0));
       }
 
       allow read: if isApproved();
@@ -126,7 +128,7 @@ service cloud.firestore {
       allow update: if isApproved() && isValidId(workerId) 
                     && isValidWorker(incoming()) 
                     && incoming().createdAt == existing().createdAt
-                    && incoming().diff(existing()).affectedKeys().hasAny(['name', 'role', 'updatedAt']);
+                    && incoming().diff(existing()).affectedKeys().hasAny(['name', 'role', 'salary', 'updatedAt']);
       allow delete: if isAdmin() || (isApproved() && existing().userId == request.auth.uid);
     }
 

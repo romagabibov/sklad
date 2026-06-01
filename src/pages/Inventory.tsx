@@ -7,7 +7,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { Product, ProductVariant } from '../types';
 
 export const Inventory: React.FC = () => {
-  const { products, addProduct, deleteProduct, updateProductInfo } = useWarehouse();
+  const { products, addProduct, deleteProduct, updateProductInfo, profile } = useWarehouse();
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -176,7 +177,7 @@ export const Inventory: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-800">{product.name} — Варианты</h1>
           </div>
           <div className="flex gap-2 mt-2 sm:mt-0">
-            {newVariant?.productId !== product.id && (
+            {isAdmin && newVariant?.productId !== product.id && (
               <button 
                 onClick={() => setNewVariant({ productId: product.id, name: '', stock: 0 })}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm flex items-center gap-2 transition-colors uppercase"
@@ -206,7 +207,7 @@ export const Inventory: React.FC = () => {
                 <tr>
                   <th className="px-6 py-3 w-1/2">Название варианта (напр. Цвет / Размер)</th>
                   <th className="px-6 py-3 w-1/4 text-center">Количество</th>
-                  <th className="px-6 py-3 text-right">Действия</th>
+                  {isAdmin && <th className="px-6 py-3 text-right">Действия</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -256,39 +257,47 @@ export const Inventory: React.FC = () => {
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-3">
-                          <button 
-                            onClick={() => handleEditVariantStock(product, variant.id!, Math.max(0, variant.stock - 1))}
-                            className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-bold text-lg focus:outline-none"
-                          >-</button>
-                          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                          {isAdmin && (
+                            <button 
+                              onClick={() => handleEditVariantStock(product, variant.id!, Math.max(0, variant.stock - 1))}
+                              className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-bold text-lg focus:outline-none"
+                            >-</button>
+                          )}
+                          <div className={`flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden ${!isAdmin ? 'px-4' : ''}`}>
                             <span className="w-16 text-center font-mono font-medium text-base py-1">{variant.stock}</span>
-                            <button
-                              onClick={() => {
-                                setEditingVariantId(variant.id!);
-                                setEditVariantStockValue(variant.stock);
-                              }}
-                              className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors p-2 border-l border-slate-200 focus:outline-none"
-                              title="Редактировать количество"
-                            >
-                              <Pencil size={14} />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => {
+                                  setEditingVariantId(variant.id!);
+                                  setEditVariantStockValue(variant.stock);
+                                }}
+                                className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors p-2 border-l border-slate-200 focus:outline-none"
+                                title="Редактировать количество"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            )}
                           </div>
-                          <button 
-                            onClick={() => handleEditVariantStock(product, variant.id!, variant.stock + 1)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-bold text-lg focus:outline-none"
-                          >+</button>
+                          {isAdmin && (
+                            <button 
+                              onClick={() => handleEditVariantStock(product, variant.id!, variant.stock + 1)}
+                              className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors font-bold text-lg focus:outline-none"
+                            >+</button>
+                          )}
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-3 text-right">
-                      <button 
-                        onClick={() => handleDeleteVariant(product, variant.id!)}
-                        className="text-rose-500 hover:text-rose-700 bg-rose-50 p-2 rounded-lg transition-colors"
-                        title="Удалить вариант"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
+                    {isAdmin && (
+                      <td className="px-6 py-3 text-right">
+                        <button 
+                          onClick={() => handleDeleteVariant(product, variant.id!)}
+                          className="text-rose-500 hover:text-rose-700 bg-rose-50 p-2 rounded-lg transition-colors"
+                          title="Удалить вариант"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
 
@@ -369,16 +378,18 @@ export const Inventory: React.FC = () => {
             <Download size={14} />
             <span>EXCEL</span>
           </button>
-          <button 
-            onClick={() => {
-              setIsAddModalOpen(true);
-              setGenerateReceipt(false);
-            }}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm flex items-center gap-2 transition-colors uppercase"
-          >
-            <Plus size={14} />
-            <span>{t('add_product', 'Новый товар')}</span>
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                setIsAddModalOpen(true);
+                setGenerateReceipt(false);
+              }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-sm flex items-center gap-2 transition-colors uppercase"
+            >
+              <Plus size={14} />
+              <span>{t('add_product', 'Новый товар')}</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -406,8 +417,8 @@ export const Inventory: React.FC = () => {
                 <th className="px-4 py-3 text-center">{t('stock', 'Остаток')}</th>
                 <th className="px-4 py-3 text-center">{t('status', 'Статус')}</th>
                 <th className="px-4 py-3 text-right">{t('total_value', 'Общая ст-ть (AZN)')}</th>
-                <th className="px-4 py-3 text-right"></th>
-                <th className="px-4 py-3 text-right">{t('delete', 'Удалить')}</th>
+                {isAdmin && <th className="px-4 py-3 text-right"></th>}
+                {isAdmin && <th className="px-4 py-3 text-right">{t('delete', 'Удалить')}</th>}
               </tr>
             </thead>
             <tbody className="text-xs divide-y divide-slate-50">
@@ -444,29 +455,33 @@ export const Inventory: React.FC = () => {
                   <td className="px-4 py-2 text-right text-slate-900 font-bold">
                     {(product.price * product.stock).toFixed(2)}
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    <button 
-                      onClick={() => handleEditClick(product)}
-                      className="text-blue-500 hover:text-blue-700 transition-colors p-1"
-                      title={t('edit', 'Редактировать')}
-                    >
-                      <Pencil size={16} />
-                    </button>
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <button 
-                      onClick={() => handleDelete(product.id, product.name)}
-                      className="text-rose-500 hover:text-rose-700 transition-colors p-1"
-                      title={t('delete', 'Удалить')}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
+                  {isAdmin && (
+                    <td className="px-4 py-2 text-right">
+                      <button 
+                        onClick={() => handleEditClick(product)}
+                        className="text-blue-500 hover:text-blue-700 transition-colors p-1"
+                        title={t('edit', 'Редактировать')}
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    </td>
+                  )}
+                  {isAdmin && (
+                    <td className="px-4 py-2 text-right">
+                      <button 
+                        onClick={() => handleDelete(product.id, product.name)}
+                        className="text-rose-500 hover:text-rose-700 transition-colors p-1"
+                        title={t('delete', 'Удалить')}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={isAdmin ? 8 : 6} className="px-4 py-8 text-center text-slate-400">
                     {t('no_products_found', 'Товары не найдены')}
                   </td>
                 </tr>

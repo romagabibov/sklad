@@ -28,9 +28,15 @@ interface WarehouseContextType {
   processIncoming: (items: Omit<TransactionItem, 'total'>[]) => Promise<Transaction>;
   processOutgoing: (items: Omit<TransactionItem, 'total'>[]) => Promise<Transaction>;
   processDispatch: (items: Omit<TransactionItem, 'total'>[], recipientName: string) => Promise<Transaction>;
-  addWorker: (name: string, role: string) => Promise<void>;
+  processCut: (code: string, quantity: number, sewingPrice?: number) => Promise<Transaction>;
+  deleteTransaction: (id: string) => Promise<void>;
+  updateCut: (id: string, code: string, quantity: number, sewingPrice?: number) => Promise<void>;
+  updateTransactionDate: (id: string, date: string) => Promise<void>;
+  addWorker: (name: string, role: string, salary?: number) => Promise<void>;
+  updateWorkerSalary: (id: string, salary: number) => Promise<void>;
   deleteWorker: (id: string) => Promise<void>;
   toggleAttendance: (date: string, workerId: string, isPresent: boolean) => Promise<void>;
+  removeAttendance: (date: string, workerId: string) => Promise<void>;
   clearTransactions: () => Promise<void>;
   updateUserRole: (uid: string, role: string, status: string) => Promise<void>;
 }
@@ -368,18 +374,98 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
     }
   };
 
-  const addWorker = async (name: string, role: string) => {
+  const processCut = async (code: string, quantity: number, sewingPrice?: number) => {
     const id = generateId();
-    const worker = {
+    const newTransaction = {
+      type: 'CUT' as const,
+      date: new Date().toISOString(),
+      items: [{
+        productId: code,
+        productName: code,
+        quantity,
+        price: sewingPrice || 0,
+        total: (sewingPrice || 0) * quantity
+      }],
+      totalAmount: (sewingPrice || 0) * quantity,
+      userId: user.uid,
+      createdAt: Date.now()
+    };
+
+    try {
+      await setDoc(doc(db, 'transactions', id), newTransaction);
+      return { id, ...newTransaction } as unknown as Transaction;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'transactions');
+      throw error;
+    }
+  };
+
+  const updateCut = async (id: string, code: string, quantity: number, sewingPrice?: number) => {
+    try {
+      await updateDoc(doc(db, 'transactions', id), {
+        'items': [{
+          productId: code,
+          productName: code,
+          quantity,
+          price: sewingPrice || 0,
+          total: (sewingPrice || 0) * quantity
+        }],
+        totalAmount: (sewingPrice || 0) * quantity,
+        updatedAt: Date.now()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'transactions');
+      throw error;
+    }
+  };
+
+  const updateTransactionDate = async (id: string, date: string) => {
+    try {
+      await updateDoc(doc(db, 'transactions', id), {
+        date,
+        updatedAt: Date.now()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'transactions');
+      throw error;
+    }
+  };
+
+  const deleteTransaction = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'transactions', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'transactions');
+      throw error;
+    }
+  };
+
+  const addWorker = async (name: string, role: string, salary?: number) => {
+    const id = generateId();
+    const worker: any = {
       name,
       role,
       userId: user.uid,
       createdAt: Date.now()
     };
+    if (salary !== undefined) {
+      worker.salary = salary;
+    }
     try {
       await setDoc(doc(db, 'workers', id), worker);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `workers/${id}`);
+    }
+  };
+
+  const updateWorkerSalary = async (id: string, salary: number) => {
+    try {
+      await updateDoc(doc(db, 'workers', id), {
+        salary,
+        updatedAt: Date.now()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `workers/${id}`);
     }
   };
 
@@ -425,6 +511,18 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
     }
   };
 
+  const removeAttendance = async (date: string, workerId: string) => {
+    const existing = attendance.find(a => a.date === date && a.workerId === workerId);
+    if (existing && existing.id) {
+      try {
+        await deleteDoc(doc(db, 'attendance', existing.id));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, 'attendance');
+        throw error;
+      }
+    }
+  };
+
   const clearTransactions = async () => {
     try {
       const batch = writeBatch(db);
@@ -441,7 +539,7 @@ export const WarehouseProvider: React.FC<{children: ReactNode}> = ({ children })
   };
 
   return (
-    <WarehouseContext.Provider value={{ user, profile, users, products, transactions, workers, attendance, addProduct, updateProductInfo, deleteProduct, processIncoming, processOutgoing, processDispatch, addWorker, deleteWorker, toggleAttendance, clearTransactions, updateUserRole }}>
+    <WarehouseContext.Provider value={{ user, profile, users, products, transactions, workers, attendance, addProduct, updateProductInfo, deleteProduct, processIncoming, processOutgoing, processDispatch, processCut, deleteTransaction, updateCut, updateTransactionDate, addWorker, updateWorkerSalary, deleteWorker, toggleAttendance, removeAttendance, clearTransactions, updateUserRole }}>
       {children}
     </WarehouseContext.Provider>
   );

@@ -1,4 +1,4 @@
-export type TransactionType = 'IN' | 'OUT' | 'DISPATCH';
+export type TransactionType = 'IN' | 'OUT' | 'DISPATCH' | 'CUT';
 
 export interface ProductVariant {
   id?: string;
@@ -38,6 +38,7 @@ export interface Worker {
   id: string;
   name: string;
   role: string;
+  salary?: number;
 }
 
 export interface AttendanceRecord {

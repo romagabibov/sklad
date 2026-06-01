@@ -84,7 +84,7 @@ export const Dashboard: React.FC = () => {
       </header>
 
       {/* Top Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
         <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-sm">
           <p className="text-xs font-bold text-slate-500 uppercase">{t('current_stock', 'Текущий остаток')}</p>
           <p className="text-2xl font-black text-slate-800 mt-1">{totalItemsInStock}</p>
@@ -96,45 +96,9 @@ export const Dashboard: React.FC = () => {
           <p className="text-2xl font-black text-blue-600 mt-1">{totalStockValue.toLocaleString('ru-RU')} AZN</p>
           <p className="text-[10px] text-slate-400 mt-1">{t('current_stock', 'Текущий инвентарь')}</p>
         </div>
-
-        <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-sm">
-          <p className="text-xs font-bold text-slate-500 uppercase">{t('sales_count', 'Количество продаж')}</p>
-          <p className="text-2xl font-black text-slate-800 mt-1">{outTransactions.length}</p>
-          <p className="text-[10px] text-emerald-600 mt-1 font-bold">{t('for_selected_period', 'За выбранный период')}</p>
-        </div>
-
-        <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-sm">
-          <p className="text-xs font-bold text-slate-500 uppercase">{t('revenue_opt_retail', 'Выручка (Опт/Розница)')}</p>
-          <p className="text-2xl font-black text-emerald-600 mt-1">{totalSalesRevenue.toLocaleString('ru-RU')} AZN</p>
-          <p className="text-[10px] text-slate-400 mt-1">{t('income_for_period', 'Доход за выбранный период')}</p>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
-          <div className="p-4 border-b border-slate-100">
-            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-tight">{t('popular_items', 'Топ продаж (по количеству)')}</h2>
-          </div>
-          <div className="p-4 flex-1">
-            {salesByProduct.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={salesByProduct} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)' }} />
-                    <Bar dataKey="quantity" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-               <div className="h-64 flex items-center justify-center text-slate-400 text-xs">{t('no_products_found', 'Нет данных о продажах.')}</div>
-            )}
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 gap-6">
         {/* Category breakdown */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
           <div className="p-4 border-b border-slate-100">
